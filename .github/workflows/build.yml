@@ -49,9 +49,18 @@ jobs:
             Stats.dmg \
             "$PWD/build/Stats.app"
 
-      - name: Upload DMG
+      - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
           name: Stats-dmg
           path: Stats.dmg
           retention-days: 7
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.sha }}
+          name: "Dev Build (${{ github.sha }})"
+          body: "Automated unsigned build from commit ${{ github.sha }}"
+          files: Stats.dmg
+          prerelease: true
