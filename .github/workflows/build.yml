@@ -28,15 +28,9 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             AD_HOC_CODE_SIGNING_ALLOWED=YES
 
-      - name: Export .app
+      - name: Extract .app from archive
         run: |
-          xcodebuild -exportArchive \
-            -archivePath $PWD/build/Stats.xcarchive \
-            -exportPath $PWD/build \
-            -exportOptionsPlist exportOptions.plist \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+          cp -R "$PWD/build/Stats.xcarchive/Products/Applications/Stats.app" "$PWD/build/Stats.app"
 
       - name: Install create-dmg
         run: brew install create-dmg
