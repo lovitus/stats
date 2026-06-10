@@ -48,7 +48,7 @@ public struct Provider: TimelineProvider {
     private let userDefaults: UserDefaults? = UserDefaults(suiteName: "\(Bundle.main.object(forInfoDictionaryKey: "TeamId") as! String).eu.exelban.Stats.widgets")
     
     public var systemWidgetsUpdatesState: Bool {
-        self.userDefaults?.bool(forKey: "systemWidgetsUpdates_state") ?? false
+        systemWidgetDiskWritesEnabled && (self.userDefaults?.bool(forKey: "systemWidgetsUpdates_state") ?? false)
     }
     
     public func placeholder(in context: Context) -> RAM_entry {
@@ -60,7 +60,9 @@ public struct Provider: TimelineProvider {
     }
     
     public func getTimeline(in context: Context, completion: @escaping (Timeline<RAM_entry>) -> Void) {
-        self.userDefaults?.set(Date().timeIntervalSince1970, forKey: RAM_entry.kind)
+        if self.systemWidgetsUpdatesState {
+            touchWidgetActivity(self.userDefaults, RAM_entry.kind)
+        }
         var entry = RAM_entry()
         if let raw = userDefaults?.data(forKey: "RAM@UsageReader"), let load = try? JSONDecoder().decode(RAM_Usage.self, from: raw) {
             entry.value = load

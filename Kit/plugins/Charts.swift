@@ -137,6 +137,10 @@ public class ChartView: NSView {
         self.stateQueue.async(flags: .barrier, execute: block)
     }
     
+    fileprivate func writeSync(_ block: () -> Void) {
+        self.stateQueue.sync(flags: .barrier, execute: block)
+    }
+    
     fileprivate func displayIfVisible() {
         if Thread.isMainThread {
             if self.window?.isVisible ?? false { self.display() }
@@ -193,7 +197,11 @@ public class LineChartView: ChartView {
     private static let xLegendFont = NSFont.systemFont(ofSize: 9, weight: .light)
     private static let xLegendSampleWidth = "00:00:00".widthOfString(usingFont: xLegendFont)
     
-    private let dateFormatter = DateFormatter()
+    private lazy var dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd/MM HH:mm:ss"
+        return formatter
+    }()
     
     private var points: [DoubleValue?]
     private var head: Int = 0
@@ -211,7 +219,13 @@ public class LineChartView: ChartView {
     private var scale: Scale
     private var fixedScale: Double
     private var zeroValue: Double
-    private let legendDateFormatter = DateFormatter()
+    private var sampleInterval: TimeInterval
+    private var lastSampleAt: Date? = nil
+    private lazy var legendDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        return formatter
+    }()
     
     private var cursor: NSPoint? = nil
     private var stop: Bool = false
@@ -229,6 +243,7 @@ public class LineChartView: ChartView {
         scale: Scale = .none,
         fixedScale: Double = 1,
         zeroValue: Double = 0.01,
+        sampleInterval: TimeInterval = 60,
         animation: Bool = true
     ) {
         self.points = Array(repeating: nil, count: max(num, 1))
@@ -237,12 +252,10 @@ public class LineChartView: ChartView {
         self.scale = scale
         self.fixedScale = fixedScale
         self.zeroValue = zeroValue
+        self.sampleInterval = sampleInterval
         
         super.init(frame: frame, queueLabel: "eu.exelban.Stats.Charts.Line")
         self.animationEnabled = animation
-        
-        self.dateFormatter.dateFormat = "dd/MM HH:mm:ss"
-        self.legendDateFormatter.dateFormat = "HH:mm:ss"
         
         self.addTrackingArea(NSTrackingArea(
             rect: CGRect(x: 0, y: 0, width: self.frame.width, height: self.frame.height),
@@ -317,7 +330,7 @@ public class LineChartView: ChartView {
         let yLegendWidth: CGFloat = yLegend ? 30 : 0
         let height: CGFloat = self.frame.height - offset - xLegendHeight
         let chartWidth: CGFloat = self.frame.width - yLegendWidth
-        let xRatio: CGFloat = chartWidth / CGFloat(points.count-1)
+        let xRatio: CGFloat = points.count > 1 ? chartWidth / CGFloat(points.count-1) : 0
         let zero: CGFloat = flipY ? self.frame.height : xLegendHeight
         
         var lines: [[CGPoint]] = []
@@ -549,9 +562,15 @@ public class LineChartView: ChartView {
     }
     
     public func addValue(_ value: DoubleValue) {
-        self.write {
+        var didAppend = false
+        self.writeSync {
             let n = self.points.count
             guard n > 0 else { return }
+            
+            if let lastSampleAt = self.lastSampleAt, value.ts.timeIntervalSince(lastSampleAt) < self.sampleInterval {
+                return
+            }
+            self.lastSampleAt = value.ts
             
             if let stats = self.intervalStatsLocked() {
                 let gap = value.ts.timeIntervalSince(stats.lastTs)
@@ -566,7 +585,9 @@ public class LineChartView: ChartView {
             
             self.points[self.head] = value
             self.head = (self.head + 1) % n
+            didAppend = true
         }
+        guard didAppend else { return }
         self.onMain { [weak self] in
             guard let self, self.window?.isVisible ?? false else { return }
             let state = self.read { (n: self.points.count, animate: self.animationEnabled, yLegend: self.yLegend) }
@@ -595,6 +616,15 @@ public class LineChartView: ChartView {
             result.append(self.points[(self.head + i) % n])
         }
         return result
+    }
+    
+    private func lastPointTimestampLocked() -> Date? {
+        for point in self.points.reversed() {
+            if let point {
+                return point.ts
+            }
+        }
+        return nil
     }
     
     private func intervalStatsLocked() -> (lastTs: Date, typical: TimeInterval)? {
@@ -626,16 +656,18 @@ public class LineChartView: ChartView {
     
     public func reinit(_ num: Int = 60) {
         self.write {
-            guard self.points.count != num else { return }
+            let count = max(num, 1)
+            guard self.points.count != count else { return }
             let ordered = self.orderedPointsLocked()
-            if num < ordered.count {
-                self.points = Array(ordered.suffix(num))
+            if count < ordered.count {
+                self.points = Array(ordered.suffix(count))
             } else {
-                var arr: [DoubleValue?] = Array(repeating: nil, count: num)
-                arr.replaceSubrange((num-ordered.count)..<num, with: ordered)
+                var arr: [DoubleValue?] = Array(repeating: nil, count: count)
+                arr.replaceSubrange((count-ordered.count)..<count, with: ordered)
                 self.points = arr
             }
             self.head = 0
+            self.lastSampleAt = self.lastPointTimestampLocked()
         }
         self.onMain { [weak self] in
             self?.layer?.removeAnimation(forKey: "slide")
@@ -654,8 +686,16 @@ public class LineChartView: ChartView {
     
     public func setPoints(_ newPoints: [DoubleValue]) {
         self.write {
-            self.points = newPoints.map { Optional($0) }
+            let count = max(self.points.count, 1)
+            let selected = newPoints.suffix(count)
+            var points: [DoubleValue?] = Array(repeating: nil, count: count)
+            let start = count - selected.count
+            for (idx, value) in selected.enumerated() {
+                points[start + idx] = value
+            }
+            self.points = points
             self.head = 0
+            self.lastSampleAt = self.lastPointTimestampLocked()
         }
         self.onMain { [weak self] in
             self?.layer?.removeAnimation(forKey: "slide")
@@ -743,6 +783,8 @@ public class LineChartView: ChartView {
     public override func mouseUp(with: NSEvent) {
         guard self.tooltipEnabledSnapshot else { return }
         self.stop = false
+        self.write { self.shadowPoints.removeAll(keepingCapacity: false) }
+        self.needsDisplay = true
     }
 }
 
@@ -763,6 +805,7 @@ public class NetworkChartView: ChartView {
         inColor: NSColor = .systemBlue,
         scale: Scale = .none,
         fixedScale: Double = 1,
+        sampleInterval: TimeInterval = 60,
         animation: Bool = true
     ) {
         self.reversedOrder = reversedOrder
@@ -772,8 +815,8 @@ public class NetworkChartView: ChartView {
         let bottomFrame = NSRect(x: frame.origin.x, y: 0, width: frame.width, height: safeHeight/2)
         let inFrame = self.reversedOrder ? topFrame : bottomFrame
         let outFrame = self.reversedOrder ? bottomFrame : topFrame
-        self.inChart = LineChartView(frame: inFrame, num: num, color: inColor, scale: scale, fixedScale: fixedScale, zeroValue: 256.0, animation: animation)
-        self.outChart = LineChartView(frame: outFrame, num: num, color: outColor, scale: scale, fixedScale: fixedScale, zeroValue: 256.0, animation: animation)
+        self.inChart = LineChartView(frame: inFrame, num: num, color: inColor, scale: scale, fixedScale: fixedScale, zeroValue: 256.0, sampleInterval: sampleInterval, animation: animation)
+        self.outChart = LineChartView(frame: outFrame, num: num, color: outColor, scale: scale, fixedScale: fixedScale, zeroValue: 256.0, sampleInterval: sampleInterval, animation: animation)
         
         super.init(frame: frame, queueLabel: "eu.exelban.Stats.Charts.Network")
         
@@ -1357,7 +1400,11 @@ public class GridChartView: ChartView {
     private var values: [ColorValue?] = []
     private let grid: (rows: Int, columns: Int)
     
-    private let dateFormatter = DateFormatter()
+    private lazy var dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        return formatter
+    }()
     private var cursor: NSPoint? = nil
     
     public init(frame: NSRect = .zero, grid: (rows: Int, columns: Int)) {
@@ -1365,8 +1412,6 @@ public class GridChartView: ChartView {
         super.init(frame: frame, queueLabel: "eu.exelban.Stats.Charts.Grid")
         let totalCells = max(grid.rows * grid.columns, 1)
         self.values = Array(repeating: nil, count: totalCells)
-        
-        self.dateFormatter.dateFormat = "HH:mm:ss"
         
         self.addTrackingArea(NSTrackingArea(
             rect: CGRect(x: 0, y: 0, width: self.frame.width, height: self.frame.height),

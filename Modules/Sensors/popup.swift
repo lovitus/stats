@@ -416,7 +416,7 @@ internal class ChartSensorView: NSStackView {
         self.spacing = 0
         self.layer?.cornerRadius = 3
         
-        self.chart = LineChartView(frame: NSRect(x: 0, y: 0, width: self.frame.width, height: self.frame.height), num: 120, scale: .linear)
+        self.chart = LineChartView(frame: NSRect(x: 0, y: 0, width: self.frame.width, height: self.frame.height), num: 10, scale: .linear)
         self.chart?.setSuffix(suffix)
         
         if let view = self.chart {

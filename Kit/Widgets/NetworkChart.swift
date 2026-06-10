@@ -15,24 +15,27 @@ public class NetworkChart: WidgetWrapper {
     private var boxState: Bool = false
     private var frameState: Bool = false
     private var labelState: Bool = false
-    private var historyCount: Int = 60
+    private var historyCount: Int = 3
+    private var lastSampleAt: Date? = nil
     private var downloadColor: SColor = .secondBlue
     private var uploadColor: SColor = .secondRed
     private var scaleState: Scale = .linear
     private var reverseOrderState: Bool = false
     
-    private var points: [(Double, Double)] = Array(repeating: (0, 0), count: 60)
+    private var points: [(Double, Double)] = Array(repeating: (0, 0), count: 3)
     
     private var width: CGFloat {
         get {
             switch self.historyCount {
-            case 30:
+            case 1:
                 return 22
-            case 60:
+            case 2:
+                return 26
+            case 3:
                 return 30
-            case 90:
+            case 5:
                 return 40
-            case 120:
+            case 10:
                 return 50
             default:
                 return 30
@@ -40,12 +43,7 @@ public class NetworkChart: WidgetWrapper {
         }
     }
     
-    private var historyNumbers: [KeyValue_p] = [
-        KeyValue_t(key: "30", value: "30"),
-        KeyValue_t(key: "60", value: "60"),
-        KeyValue_t(key: "90", value: "90"),
-        KeyValue_t(key: "120", value: "120")
-    ]
+    private var historyNumbers: [KeyValue_p] = LineChartHistory
     private var colors: [SColor] = SColor.allCases
     
     private var boxSettingsView: NSSwitch? = nil
@@ -77,16 +75,17 @@ public class NetworkChart: WidgetWrapper {
             self.boxState = Store.shared.bool(key: "\(self.title)_\(self.type.rawValue)_box", defaultValue: self.boxState)
             self.frameState = Store.shared.bool(key: "\(self.title)_\(self.type.rawValue)_frame", defaultValue: self.frameState)
             self.labelState = Store.shared.bool(key: "\(self.title)_\(self.type.rawValue)_label", defaultValue: self.labelState)
-            self.historyCount = Store.shared.int(key: "\(self.title)_\(self.type.rawValue)_historyCount", defaultValue: self.historyCount)
+            self.historyCount = normalizedLineChartHistory(Store.shared.int(key: "\(self.title)_\(self.type.rawValue)_historyCount", defaultValue: self.historyCount))
             self.downloadColor = SColor.fromString(Store.shared.string(key: "\(self.title)_\(self.type.rawValue)_downloadColor", defaultValue: self.downloadColor.key))
             self.uploadColor = SColor.fromString(Store.shared.string(key: "\(self.title)_\(self.type.rawValue)_uploadColor", defaultValue: self.uploadColor.key))
             self.scaleState = Scale.fromString(Store.shared.string(key: "\(self.title)_\(self.type.rawValue)_scale", defaultValue: self.scaleState.key))
             self.reverseOrderState = Store.shared.bool(key: "\(self.title)_\(self.type.rawValue)_reverseOrder", defaultValue: self.reverseOrderState)
+            self.reinitPoints(self.historyCount)
         }
         
         if preview {
             var list: [(Double, Double)] = []
-            for _ in 0..<60 {
+            for _ in 0..<10 {
                 list.append((Double.random(in: 0..<23), Double.random(in: 0..<23)))
             }
             self.points = list
@@ -264,6 +263,12 @@ public class NetworkChart: WidgetWrapper {
     
     public func setValue(upload: Double, download: Double) {
         DispatchQueue.main.async(execute: {
+            let now = Date()
+            if let lastSampleAt = self.lastSampleAt, now.timeIntervalSince(lastSampleAt) < 60 {
+                return
+            }
+            self.lastSampleAt = now
+            
             self.points.remove(at: 0)
             self.points.append((upload, download))
             
@@ -359,16 +364,20 @@ public class NetworkChart: WidgetWrapper {
     
     @objc private func toggleHistoryCount(_ sender: NSMenuItem) {
         guard let key = sender.representedObject as? String, let num = Int(key) else { return }
-        self.historyCount = num
+        let count = normalizedLineChartHistory(num)
+        self.historyCount = count
         Store.shared.set(key: "\(self.title)_\(self.type.rawValue)_historyCount", value: self.historyCount)
-        
-        if num < self.points.count {
-            self.points = Array(self.points.suffix(num))
-        } else if num > self.points.count {
-            self.points = Array(repeating: (0, 0), count: num - self.points.count) + self.points
-        }
+        self.reinitPoints(count)
         
         self.display()
+    }
+    
+    private func reinitPoints(_ count: Int) {
+        if count < self.points.count {
+            self.points = Array(self.points.suffix(count))
+        } else if count > self.points.count {
+            self.points = Array(repeating: (0, 0), count: count - self.points.count) + self.points
+        }
     }
     
     @objc private func toggleDownloadColor(_ sender: NSMenuItem) {

@@ -71,7 +71,7 @@ internal class Popup: PopupWrapper {
     
     private var chart: NetworkChartView? = nil
     private var reverseOrderState: Bool = false
-    private var chartHistory: Int = 180
+    private var chartHistory: Int = 3
     private var chartScale: Scale = .none
     private var chartFixedScale: Int = 12
     private var chartFixedScaleSize: SizeUnit = .MB
@@ -123,7 +123,7 @@ internal class Popup: PopupWrapper {
         self.downloadColorState = SColor.fromString(Store.shared.string(key: "\(self.title)_downloadColor", defaultValue: self.downloadColorState.key))
         self.uploadColorState = SColor.fromString(Store.shared.string(key: "\(self.title)_uploadColor", defaultValue: self.uploadColorState.key))
         self.reverseOrderState = Store.shared.bool(key: "\(self.title)_reverseOrder", defaultValue: self.reverseOrderState)
-        self.chartHistory = Store.shared.int(key: "\(self.title)_chartHistory", defaultValue: self.chartHistory)
+        self.chartHistory = normalizedLineChartHistory(Store.shared.int(key: "\(self.title)_chartHistory", defaultValue: self.chartHistory))
         self.chartScale = Scale.fromString(Store.shared.string(key: "\(self.title)_chartScale", defaultValue: self.chartScale.key))
         self.chartFixedScale = Store.shared.int(key: "\(self.title)_chartFixedScale", defaultValue: self.chartFixedScale)
         self.chartFixedScaleSize = SizeUnit.fromString(Store.shared.string(key: "\(self.title)_chartFixedScaleSize", defaultValue: self.chartFixedScaleSize.key))
@@ -772,8 +772,8 @@ internal class Popup: PopupWrapper {
     }
     @objc private func togglechartHistory(_ sender: NSMenuItem) {
         guard let key = sender.representedObject as? String, let value = Int(key) else { return }
-        self.chartHistory = value
-        Store.shared.set(key: "\(self.title)_chartHistory", value: value)
+        self.chartHistory = normalizedLineChartHistory(value)
+        Store.shared.set(key: "\(self.title)_chartHistory", value: self.chartHistory)
         self.chart?.reinit(self.chartHistory)
     }
     @objc private func toggleChartScale(_ sender: NSMenuItem) {

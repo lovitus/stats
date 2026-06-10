@@ -188,7 +188,7 @@ internal class Preview: PreviewWrapper {
         view.spacing = Constants.Settings.margin*2
         view.heightAnchor.constraint(equalToConstant: 140).isActive = true
         
-        let chart = LineChartView(num: 600)
+        let chart = LineChartView(num: 10)
         chart.setLegend(x: true, y: true)
         view.addArrangedSubview(chart)
         

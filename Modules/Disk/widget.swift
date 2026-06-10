@@ -31,7 +31,7 @@ public struct Provider: TimelineProvider {
     private let userDefaults: UserDefaults? = UserDefaults(suiteName: "\(Bundle.main.object(forInfoDictionaryKey: "TeamId") as! String).eu.exelban.Stats.widgets")
     
     public var systemWidgetsUpdatesState: Bool {
-        self.userDefaults?.bool(forKey: "systemWidgetsUpdates_state") ?? false
+        systemWidgetDiskWritesEnabled && (self.userDefaults?.bool(forKey: "systemWidgetsUpdates_state") ?? false)
     }
     
     public func placeholder(in context: Context) -> Disk_entry {
@@ -43,7 +43,9 @@ public struct Provider: TimelineProvider {
     }
     
     public func getTimeline(in context: Context, completion: @escaping (Timeline<Disk_entry>) -> Void) {
-        self.userDefaults?.set(Date().timeIntervalSince1970, forKey: Disk_entry.kind)
+        if self.systemWidgetsUpdatesState {
+            touchWidgetActivity(self.userDefaults, Disk_entry.kind)
+        }
         var entry = Disk_entry()
         if let raw = userDefaults?.data(forKey: "Disk@CapacityReader"), let load = try? JSONDecoder().decode(drive.self, from: raw) {
             entry.value = load

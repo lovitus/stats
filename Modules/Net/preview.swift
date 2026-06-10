@@ -139,7 +139,7 @@ internal class Preview: PreviewWrapper {
         view.spacing = Constants.Settings.margin*2
         view.heightAnchor.constraint(equalToConstant: 140).isActive = true
         
-        let chart = NetworkChartView(num: 600)
+        let chart = NetworkChartView(num: 10)
         self.chart = chart
         chart.setColors(in: self.downloadColor, out: self.uploadColor)
         chart.setLegend(x: true, y: false)

@@ -241,12 +241,14 @@ public class RAM: Module {
             }
         }
         
-        if self.systemWidgetsUpdatesState {
-            if isWidgetActive(self.userDefaults, [RAM_entry.kind, "UnitedWidget"]), let blobData = try? JSONEncoder().encode(value) {
-                self.userDefaults?.set(blobData, forKey: "RAM@UsageReader")
+        let widgetDataKey = "RAM@UsageReader"
+        if systemWidgetDiskWritesEnabled && self.systemWidgetsUpdatesState && isWidgetActive(self.userDefaults, [RAM_entry.kind, "UnitedWidget"]) && DiskWriteThrottle.shared.shouldWrite(widgetDataKey) {
+            if let blobData = try? JSONEncoder().encode(value), let userDefaults = self.userDefaults {
+                userDefaults.set(blobData, forKey: widgetDataKey)
+                DiskWriteThrottle.shared.markWritten(widgetDataKey)
+                WidgetCenter.shared.reloadTimelines(ofKind: RAM_entry.kind)
+                WidgetCenter.shared.reloadTimelines(ofKind: "UnitedWidget")
             }
-            WidgetCenter.shared.reloadTimelines(ofKind: RAM_entry.kind)
-            WidgetCenter.shared.reloadTimelines(ofKind: "UnitedWidget")
         }
     }
 }

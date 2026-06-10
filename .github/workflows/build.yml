@@ -1,0 +1,63 @@
+name: Build DMG
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Build archive (unsigned)
+        run: |
+          xcodebuild \
+            -scheme Stats \
+            -destination 'platform=OS X,arch=arm64' \
+            -configuration Release archive \
+            -archivePath $PWD/build/Stats.xcarchive \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES
+
+      - name: Export .app
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath $PWD/build/Stats.xcarchive \
+            -exportPath $PWD/build \
+            -exportOptionsPlist exportOptions.plist \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Create DMG
+        run: |
+          create-dmg \
+            --volname "Stats" \
+            --window-pos 200 120 \
+            --window-size 500 320 \
+            --icon-size 80 \
+            --icon "Stats.app" 125 175 \
+            --hide-extension "Stats.app" \
+            --app-drop-link 375 175 \
+            --no-internet-enable \
+            Stats.dmg \
+            "$PWD/build/Stats.app"
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: Stats-dmg
+          path: Stats.dmg
+          retention-days: 7

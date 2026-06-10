@@ -36,7 +36,7 @@ public struct Provider: TimelineProvider {
     private let userDefaults: UserDefaults? = UserDefaults(suiteName: "\(Bundle.main.object(forInfoDictionaryKey: "TeamId") as! String).eu.exelban.Stats.widgets")
     
     public var systemWidgetsUpdatesState: Bool {
-        self.userDefaults?.bool(forKey: "systemWidgetsUpdates_state") ?? false
+        systemWidgetDiskWritesEnabled && (self.userDefaults?.bool(forKey: "systemWidgetsUpdates_state") ?? false)
     }
     
     public func placeholder(in context: Context) -> Network_entry {
@@ -48,7 +48,9 @@ public struct Provider: TimelineProvider {
     }
     
     public func getTimeline(in context: Context, completion: @escaping (Timeline<Network_entry>) -> Void) {
-        self.userDefaults?.set(Date().timeIntervalSince1970, forKey: Network_entry.kind)
+        if self.systemWidgetsUpdatesState {
+            touchWidgetActivity(self.userDefaults, Network_entry.kind)
+        }
         var entry = Network_entry()
         if let raw = userDefaults?.data(forKey: "Network@UsageReader"), let load = try? JSONDecoder().decode(Network_Usage.self, from: raw) {
             entry.value = load

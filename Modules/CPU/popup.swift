@@ -93,7 +93,7 @@ internal class Popup: PopupWrapper {
     
     private var processes: ProcessesView? = nil
     private var maxFreq: Double = 0
-    private var lineChartHistory: Int = 180
+    private var lineChartHistory: Int = 3
     private var lineChartScale: Scale = .none
     private var lineChartFixedScale: Double = 1
     
@@ -147,7 +147,7 @@ internal class Popup: PopupWrapper {
         self.eCoresColorState = SColor.fromString(Store.shared.string(key: "\(self.title)_eCoresColor", defaultValue: self.eCoresColorState.key))
         self.pCoresColorState = SColor.fromString(Store.shared.string(key: "\(self.title)_pCoresColor", defaultValue: self.pCoresColorState.key))
         self.sCoresColorState = SColor.fromString(Store.shared.string(key: "\(self.title)_sCoresColor", defaultValue: self.sCoresColorState.key))
-        self.lineChartHistory = Store.shared.int(key: "\(self.title)_lineChartHistory", defaultValue: self.lineChartHistory)
+        self.lineChartHistory = normalizedLineChartHistory(Store.shared.int(key: "\(self.title)_lineChartHistory", defaultValue: self.lineChartHistory))
         self.lineChartScale = Scale.fromString(Store.shared.string(key: "\(self.title)_lineChartScale", defaultValue: self.lineChartScale.key))
         self.lineChartFixedScale = Double(Store.shared.int(key: "\(self.title)_lineChartFixedScale", defaultValue: 100)) / 100
         
@@ -674,8 +674,8 @@ internal class Popup: PopupWrapper {
     }
     @objc private func toggleLineChartHistory(_ sender: NSMenuItem) {
         guard let key = sender.representedObject as? String, let value = Int(key) else { return }
-        self.lineChartHistory = value
-        Store.shared.set(key: "\(self.title)_lineChartHistory", value: value)
+        self.lineChartHistory = normalizedLineChartHistory(value)
+        Store.shared.set(key: "\(self.title)_lineChartHistory", value: self.lineChartHistory)
         self.lineChart?.reinit(self.lineChartHistory)
     }
     @objc private func toggleLineChartScale(_ sender: NSMenuItem) {

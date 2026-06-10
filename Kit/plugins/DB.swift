@@ -14,95 +14,72 @@ import Foundation
 public class DB {
     public static let shared = DB()
     
-    private var lldb: LLDB? = nil
-    private let queue = DispatchQueue(label: "eu.exelban.db")
-    private let ttl: Int = 60*60
-    
-    public var _writeTS: [String: Date] = [:]
-    public var writeTS: [String: Date] {
-        get { self.queue.sync { self._writeTS } }
-        set { self.queue.sync { self._writeTS = newValue } }
-    }
-    
-    private var _values: [String: Codable] = [:]
     public var values: [String: Codable] {
-        get { self.queue.sync { self._values } }
-        set { self.queue.sync { self._values = newValue } }
+        get { [:] }
+        set {}
     }
     
     init() {
-        let fileManager = FileManager.default
-        let supportPath = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("Stats")
-        let tmpPath = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("Stats")
-        
-        try? fileManager.createDirectory(at: supportPath, withIntermediateDirectories: true, attributes: nil)
-        try? fileManager.createDirectory(at: tmpPath, withIntermediateDirectories: true, attributes: nil)
-        
-        var dbURL: URL?
-        var tmpURL: URL?
-        
-        if let values = try? supportPath.resourceValues(forKeys: [.isDirectoryKey]), values.isDirectory ?? false {
-            dbURL = supportPath.appendingPathComponent("lldb")
-        }
-        if let values = try? tmpPath.resourceValues(forKeys: [.isDirectoryKey]), values.isDirectory ?? false {
-            tmpURL = tmpPath.appendingPathComponent("lldb")
-        }
-        if dbURL == nil && tmpURL != nil {
-            dbURL = tmpURL
-        }
-        
-        if let url = dbURL, let lldb = LLDB(url.path) {
-            self.lldb = lldb
-            return
-        }
-        if let url = tmpURL, let lldb = LLDB(url.path) {
-            self.lldb = lldb
-            return
-        }
-        
-        print("ERROR INITIALIZE DB")
-    }
-    
-    deinit {
-        self.lldb?.close()
+        self.migrateLegacyNetworkUsageTotal()
+        self.removeLegacyStorage()
     }
     
     public func setup<T: Codable>(_ type: T.Type, _ key: String) {
-        self.clean(key)
-        if let raw = self.lldb?.findOne(key), let value = try? JSONDecoder().decode(type, from: Data(raw.utf8)) {
-            self.values[key] = value
-        }
+        // Runtime samples are kept by readers and chart ring buffers, not by DB.
     }
     
-    public func insert(key: String, value: Codable, ts: Bool = true, force: Bool = false) {
-        self.values[key] = value
-        guard let blobData = try? JSONEncoder().encode(value), let str = String(data: blobData, encoding: .utf8) else { return }
-        
-        if ts {
-            self.lldb?.insert("\(key)@\(Date().currentTimeSeconds())", value: str)
-        }
-        
-        if !force, let ts = self.writeTS[key], (Date().timeIntervalSince1970-ts.timeIntervalSince1970) < 30 { return }
-        
-        self.lldb?.insert(key, value: str)
-        self.writeTS[key] = Date()
-    }
+    public func insert(key: String, value: Codable, ts: Bool = true, force: Bool = false) {}
     
     public func findOne<T: Decodable>(_ dynamicType: T.Type, key: String) -> T? {
-        return self.values[key] as? T
+        return nil
     }
     
-    private func clean(_ key: String) {
-        guard let keys = self.lldb?.keys(key) as? [String] else { return }
-        let maxLiveTS = Date().currentTimeSeconds() - self.ttl
-        var toDeleteKeys: [String] = []
+    private func removeLegacyStorage() {
+        let fileManager = FileManager.default
         
-        keys.forEach { (key: String) in
-            if let ts = key.split(separator: "@").last, let ts = Int(ts), ts < maxLiveTS {
-                toDeleteKeys.append(key)
-            }
+        for url in self.legacyStorageURLs() where fileManager.fileExists(atPath: url.path) {
+            try? fileManager.removeItem(at: url)
         }
-        
-        self.lldb?.deleteMany(toDeleteKeys)
     }
+    
+    private func migrateLegacyNetworkUsageTotal() {
+        guard Store.shared.data(key: networkUsageTotalStoreKey) == nil else { return }
+        
+        for url in self.legacyStorageURLs() where FileManager.default.fileExists(atPath: url.path) {
+            guard let lldb = LLDB(url.path) else { continue }
+            defer { lldb.close() }
+            
+            guard let raw = lldb.findOne("Network@UsageReader"),
+                  let data = raw.data(using: .utf8),
+                  let usage = try? JSONDecoder().decode(LegacyNetworkUsage.self, from: data),
+                  let total = usage.total else { continue }
+            
+            let value = NetworkUsageTotalStore(upload: total.upload, download: total.download)
+            guard let data = try? JSONEncoder().encode(value) else { continue }
+            
+            Store.shared.set(key: networkUsageTotalStoreKey, value: data)
+            return
+        }
+    }
+    
+    private func legacyStorageURLs() -> [URL] {
+        let fileManager = FileManager.default
+        var urls: [URL] = []
+        
+        if let supportPath = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            urls.append(supportPath.appendingPathComponent("Stats/lldb"))
+        }
+        urls.append(URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("Stats/lldb"))
+        
+        return urls
+    }
+}
+
+private struct LegacyNetworkUsage: Decodable {
+    let total: NetworkUsageTotalStore?
+}
+
+private struct NetworkUsageTotalStore: Codable {
+    let upload: Int64
+    let download: Int64
 }

@@ -161,7 +161,7 @@ internal class Preview: PreviewWrapper {
         view.spacing = Constants.Settings.margin*2
         view.heightAnchor.constraint(equalToConstant: 140).isActive = true
         
-        let chart = LineChartView(num: 600)
+        let chart = LineChartView(num: 10)
         chart.setColor(self.chartColor)
         chart.setLegend(x: true, y: true)
         self.loadLineChart = chart
@@ -193,7 +193,7 @@ internal class Preview: PreviewWrapper {
         circle.toolTip = localizedString("Memory pressure")
         self.pressureCircle = circle
         
-        let chart = LineChartView(num: 600, fixedScale: 3)
+        let chart = LineChartView(num: 10, fixedScale: 3)
         chart.setColor(self.chartColor)
         chart.setLegend(x: true, y: false)
         chart.setToolTipFunc { v in
@@ -228,7 +228,7 @@ internal class Preview: PreviewWrapper {
         circle.toolTip = localizedString("Swap")
         self.swapCircle = circle
         
-        let chart = LineChartView(num: 600)
+        let chart = LineChartView(num: 10)
         chart.setColor(self.chartColor)
         chart.setLegend(x: true, y: false)
         chart.setToolTipFunc { v in

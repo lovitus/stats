@@ -340,11 +340,13 @@ public class Network: Module {
             }
         }
         
-        if self.systemWidgetsUpdatesState {
-            if isWidgetActive(self.userDefaults, [Network_entry.kind]), let blobData = try? JSONEncoder().encode(raw) {
-                self.userDefaults?.set(blobData, forKey: "Network@UsageReader")
+        let widgetDataKey = "Network@UsageReader"
+        if systemWidgetDiskWritesEnabled && self.systemWidgetsUpdatesState && isWidgetActive(self.userDefaults, [Network_entry.kind]) && DiskWriteThrottle.shared.shouldWrite(widgetDataKey) {
+            if let blobData = try? JSONEncoder().encode(raw), let userDefaults = self.userDefaults {
+                userDefaults.set(blobData, forKey: widgetDataKey)
+                DiskWriteThrottle.shared.markWritten(widgetDataKey)
+                WidgetCenter.shared.reloadTimelines(ofKind: Network_entry.kind)
             }
-            WidgetCenter.shared.reloadTimelines(ofKind: Network_entry.kind)
         }
     }
     

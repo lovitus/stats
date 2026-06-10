@@ -340,12 +340,14 @@ public class Disk: Module {
             }
         }
         
-        if self.systemWidgetsUpdatesState {
-            if isWidgetActive(self.userDefaults, [Disk_entry.kind, "UnitedWidget"]), let blobData = try? JSONEncoder().encode(d) {
-                self.userDefaults?.set(blobData, forKey: "Disk@CapacityReader")
+        let widgetDataKey = "Disk@CapacityReader"
+        if systemWidgetDiskWritesEnabled && self.systemWidgetsUpdatesState && isWidgetActive(self.userDefaults, [Disk_entry.kind, "UnitedWidget"]) && DiskWriteThrottle.shared.shouldWrite(widgetDataKey) {
+            if let blobData = try? JSONEncoder().encode(d), let userDefaults = self.userDefaults {
+                userDefaults.set(blobData, forKey: widgetDataKey)
+                DiskWriteThrottle.shared.markWritten(widgetDataKey)
+                WidgetCenter.shared.reloadTimelines(ofKind: Disk_entry.kind)
+                WidgetCenter.shared.reloadTimelines(ofKind: "UnitedWidget")
             }
-            WidgetCenter.shared.reloadTimelines(ofKind: Disk_entry.kind)
-            WidgetCenter.shared.reloadTimelines(ofKind: "UnitedWidget")
         }
     }
     

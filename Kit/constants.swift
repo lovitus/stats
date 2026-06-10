@@ -11,6 +11,43 @@
 
 import Cocoa
 
+public let systemWidgetDiskWritesEnabled = true
+public let systemWidgetDiskWriteInterval: TimeInterval = 60
+public let systemWidgetActiveThreshold: TimeInterval = (systemWidgetDiskWriteInterval * 2) + 10
+public let networkUsageTotalStoreKey = "Network_usageTotal"
+
+public final class DiskWriteThrottle {
+    public static let shared = DiskWriteThrottle()
+    
+    private let queue = DispatchQueue(label: "eu.exelban.Stats.DiskWriteThrottle")
+    private var lastWrites: [String: Date] = [:]
+    
+    private init() {}
+    
+    public func shouldWrite(_ key: String, interval: TimeInterval = systemWidgetDiskWriteInterval, force: Bool = false) -> Bool {
+        self.queue.sync {
+            guard !force, let lastWrite = self.lastWrites[key] else { return true }
+            return Date().timeIntervalSince(lastWrite) >= interval
+        }
+    }
+    
+    public func markWritten(_ key: String, at date: Date = Date()) {
+        self.queue.sync {
+            self.lastWrites[key] = date
+        }
+    }
+}
+
+public func touchWidgetActivity(_ defaults: UserDefaults?, _ key: String) {
+    guard systemWidgetDiskWritesEnabled else { return }
+    
+    let now = Date().timeIntervalSince1970
+    let lastUpdate = defaults?.double(forKey: key) ?? 0
+    guard now - lastUpdate >= systemWidgetDiskWriteInterval else { return }
+    
+    defaults?.set(now, forKey: key)
+}
+
 public struct Popup_c_s {
     public let width: CGFloat = 264
     public let height: CGFloat = 300

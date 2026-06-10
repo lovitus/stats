@@ -31,7 +31,7 @@ public struct Provider: TimelineProvider {
     private let userDefaults: UserDefaults? = UserDefaults(suiteName: "\(Bundle.main.object(forInfoDictionaryKey: "TeamId") as! String).eu.exelban.Stats.widgets")
     
     public var systemWidgetsUpdatesState: Bool {
-        self.userDefaults?.bool(forKey: "systemWidgetsUpdates_state") ?? false
+        systemWidgetDiskWritesEnabled && (self.userDefaults?.bool(forKey: "systemWidgetsUpdates_state") ?? false)
     }
     
     public func placeholder(in context: Context) -> GPU_entry {
@@ -43,7 +43,9 @@ public struct Provider: TimelineProvider {
     }
     
     public func getTimeline(in context: Context, completion: @escaping (Timeline<GPU_entry>) -> Void) {
-        self.userDefaults?.set(Date().timeIntervalSince1970, forKey: GPU_entry.kind)
+        if self.systemWidgetsUpdatesState {
+            touchWidgetActivity(self.userDefaults, GPU_entry.kind)
+        }
         var entry = GPU_entry()
         if let raw = userDefaults?.data(forKey: "GPU@InfoReader"), let load = try? JSONDecoder().decode(GPU_Info.self, from: raw) {
             entry.value = load

@@ -52,7 +52,7 @@ internal class Popup: PopupWrapper {
         (self.processHeight*CGFloat(self.numberOfProcesses)) + (self.numberOfProcesses == 0 ? 0 : Constants.Popup.separatorHeight + 22)
     }
     
-    private var lineChartHistory: Int = 180
+    private var lineChartHistory: Int = 3
     private var lineChartScale: Scale = .none
     private var lineChartFixedScale: Double = 1
     private var chartPrefSection: PreferencesSection? = nil
@@ -82,7 +82,7 @@ internal class Popup: PopupWrapper {
         self.compressedColorState = SColor.fromString(Store.shared.string(key: "\(self.title)_compressedColor", defaultValue: self.compressedColorState.key))
         self.freeColorState = SColor.fromString(Store.shared.string(key: "\(self.title)_freeColor", defaultValue: self.freeColorState.key))
         self.chartColorState = SColor.fromString(Store.shared.string(key: "\(self.title)_chartColor", defaultValue: self.chartColorState.key))
-        self.lineChartHistory = Store.shared.int(key: "\(self.title)_lineChartHistory", defaultValue: self.lineChartHistory)
+        self.lineChartHistory = normalizedLineChartHistory(Store.shared.int(key: "\(self.title)_lineChartHistory", defaultValue: self.lineChartHistory))
         self.lineChartScale = Scale.fromString(Store.shared.string(key: "\(self.title)_lineChartScale", defaultValue: self.lineChartScale.key))
         self.lineChartFixedScale = Double(Store.shared.int(key: "\(self.title)_lineChartFixedScale", defaultValue: 100)) / 100
         
@@ -400,8 +400,8 @@ internal class Popup: PopupWrapper {
     }
     @objc private func toggleLineChartHistory(_ sender: NSMenuItem) {
         guard let key = sender.representedObject as? String, let value = Int(key) else { return }
-        self.lineChartHistory = value
-        Store.shared.set(key: "\(self.title)_lineChartHistory", value: value)
+        self.lineChartHistory = normalizedLineChartHistory(value)
+        Store.shared.set(key: "\(self.title)_lineChartHistory", value: self.lineChartHistory)
         self.chart?.reinit(self.lineChartHistory)
     }
     @objc private func toggleLineChartScale(_ sender: NSMenuItem) {

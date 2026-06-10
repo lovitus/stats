@@ -2040,7 +2040,7 @@ public func isWidgetActive(_ defaults: UserDefaults?, _ widgets: [String]) -> Bo
     for name in widgets {
         guard let lastUpdate = defaults?.double(forKey: name) else { return false }
         let timeSinceUpdate = Date().timeIntervalSince1970 - lastUpdate
-        if timeSinceUpdate < 60 {
+        if timeSinceUpdate < systemWidgetActiveThreshold {
             return true
         }
     }

@@ -24,7 +24,7 @@ internal class Popup: PopupWrapper {
     private var tilerCircle: PieChartView? = nil
     
     private var chart: LineChartView? = nil
-    private var lineChartHistory: Int = 180
+    private var lineChartHistory: Int = 3
     private var lineChartScale: Scale = .none
     private var lineChartFixedScale: Double = 1
     

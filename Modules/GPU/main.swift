@@ -195,12 +195,14 @@ public class GPU: Module {
             }
         }
         
-        if self.systemWidgetsUpdatesState {
-            if isWidgetActive(self.userDefaults, [GPU_entry.kind, "UnitedWidget"]), let blobData = try? JSONEncoder().encode(selectedGPU) {
-                self.userDefaults?.set(blobData, forKey: "GPU@InfoReader")
+        let widgetDataKey = "GPU@InfoReader"
+        if systemWidgetDiskWritesEnabled && self.systemWidgetsUpdatesState && isWidgetActive(self.userDefaults, [GPU_entry.kind, "UnitedWidget"]) && DiskWriteThrottle.shared.shouldWrite(widgetDataKey) {
+            if let blobData = try? JSONEncoder().encode(selectedGPU), let userDefaults = self.userDefaults {
+                userDefaults.set(blobData, forKey: widgetDataKey)
+                DiskWriteThrottle.shared.markWritten(widgetDataKey)
+                WidgetCenter.shared.reloadTimelines(ofKind: GPU_entry.kind)
+                WidgetCenter.shared.reloadTimelines(ofKind: "UnitedWidget")
             }
-            WidgetCenter.shared.reloadTimelines(ofKind: GPU_entry.kind)
-            WidgetCenter.shared.reloadTimelines(ofKind: "UnitedWidget")
         }
     }
 }

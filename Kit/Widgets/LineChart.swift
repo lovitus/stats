@@ -18,7 +18,7 @@ public class LineChart: WidgetWrapper {
     private var valueState: Bool = false
     private var valueColorState: Bool = false
     private var colorState: SColor = .systemAccent
-    private var historyCount: Int = 60
+    private var historyCount: Int = 3
     private var scaleState: Scale = .none
     
     private var chart: LineChartView = LineChartView(frame: NSRect(
@@ -26,27 +26,24 @@ public class LineChart: WidgetWrapper {
         y: 0,
         width: 32,
         height: Constants.Widget.height - (2*Constants.Widget.margin.y)
-    ), num: 60)
+    ), num: 3)
     private var colors: [SColor] = SColor.allCases.filter({ $0 != SColor.cluster })
     private var _value: Double = 0
     private var _pressureLevel: RAMPressure = .normal
     
-    private var historyNumbers: [KeyValue_p] = [
-        KeyValue_t(key: "30", value: "30"),
-        KeyValue_t(key: "60", value: "60"),
-        KeyValue_t(key: "90", value: "90"),
-        KeyValue_t(key: "120", value: "120")
-    ]
+    private var historyNumbers: [KeyValue_p] = LineChartHistory
     private var width: CGFloat {
         get {
             switch self.historyCount {
-            case 30:
+            case 1:
                 return 24
-            case 60:
+            case 2:
+                return 28
+            case 3:
                 return 32
-            case 90:
+            case 5:
                 return 42
-            case 120:
+            case 10:
                 return 52
             default:
                 return 32
@@ -100,7 +97,7 @@ public class LineChart: WidgetWrapper {
             self.labelState = Store.shared.bool(key: "\(self.title)_\(self.type.rawValue)_label", defaultValue: self.labelState)
             self.valueColorState = Store.shared.bool(key: "\(self.title)_\(self.type.rawValue)_valueColor", defaultValue: self.valueColorState)
             self.colorState = SColor.fromString(Store.shared.string(key: "\(self.title)_\(self.type.rawValue)_color", defaultValue: self.colorState.key))
-            self.historyCount = Store.shared.int(key: "\(self.title)_\(self.type.rawValue)_historyCount", defaultValue: self.historyCount)
+            self.historyCount = normalizedLineChartHistory(Store.shared.int(key: "\(self.title)_\(self.type.rawValue)_historyCount", defaultValue: self.historyCount))
             self.scaleState = Scale.fromString(Store.shared.string(key: "\(self.title)_\(self.type.rawValue)_scale", defaultValue: self.scaleState.key))
             
             self.chart.setScale(self.scaleState)
@@ -368,9 +365,9 @@ public class LineChart: WidgetWrapper {
     
     @objc private func toggleHistoryCount(_ sender: NSMenuItem) {
         guard let key = sender.representedObject as? String, let value = Int(key) else { return }
-        self.historyCount = value
-        Store.shared.set(key: "\(self.title)_\(self.type.rawValue)_historyCount", value: value)
-        self.chart.reinit(value)
+        self.historyCount = normalizedLineChartHistory(value)
+        Store.shared.set(key: "\(self.title)_\(self.type.rawValue)_historyCount", value: self.historyCount)
+        self.chart.reinit(self.historyCount)
         self.display()
     }
     

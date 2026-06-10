@@ -13,6 +13,7 @@ import CPU
 import GPU
 import RAM
 import Disk
+import Kit
 
 public struct Value {
     public var value: Double = 0
@@ -43,6 +44,10 @@ public struct Provider: TimelineProvider {
     
     private let userDefaults: UserDefaults? = UserDefaults(suiteName: "\(Bundle.main.object(forInfoDictionaryKey: "TeamId") as! String).eu.exelban.Stats.widgets")
     
+    private var systemWidgetsUpdatesState: Bool {
+        systemWidgetDiskWritesEnabled && (self.userDefaults?.bool(forKey: "systemWidgetsUpdates_state") ?? false)
+    }
+    
     public func placeholder(in context: Context) -> United_entry {
         United_entry()
     }
@@ -52,7 +57,9 @@ public struct Provider: TimelineProvider {
     }
     
     public func getTimeline(in context: Context, completion: @escaping (Timeline<United_entry>) -> Void) {
-        self.userDefaults?.set(Date().timeIntervalSince1970, forKey: United_entry.kind)
+        if self.systemWidgetsUpdatesState {
+            touchWidgetActivity(self.userDefaults, United_entry.kind)
+        }
         
         var entry = United_entry()
         if let raw = userDefaults?.data(forKey: "CPU@LoadReader"), let value = try? JSONDecoder().decode(CPU_Load.self, from: raw) {

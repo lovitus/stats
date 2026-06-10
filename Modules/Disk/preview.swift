@@ -222,7 +222,7 @@ internal class Preview: PreviewWrapper {
         view.spacing = Constants.Settings.margin*2
         view.heightAnchor.constraint(equalToConstant: 140).isActive = true
         
-        let chart = NetworkChartView(frame: .zero, num: 600)
+        let chart = NetworkChartView(frame: .zero, num: 10)
         self.chart = chart
         chart.setColors(in: self.readColor, out: self.writeColor)
         chart.setReverseOrder(self.reverseOrderState)

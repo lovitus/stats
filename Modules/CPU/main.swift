@@ -261,12 +261,14 @@ public class CPU: Module {
             }
         }
         
-        if self.systemWidgetsUpdatesState {
-            if isWidgetActive(self.userDefaults, [CPU_entry.kind, "UnitedWidget"]), let blobData = try? JSONEncoder().encode(value) {
-                self.userDefaults?.set(blobData, forKey: "CPU@LoadReader")
+        let widgetDataKey = "CPU@LoadReader"
+        if systemWidgetDiskWritesEnabled && self.systemWidgetsUpdatesState && isWidgetActive(self.userDefaults, [CPU_entry.kind, "UnitedWidget"]) && DiskWriteThrottle.shared.shouldWrite(widgetDataKey) {
+            if let blobData = try? JSONEncoder().encode(value), let userDefaults = self.userDefaults {
+                userDefaults.set(blobData, forKey: widgetDataKey)
+                DiskWriteThrottle.shared.markWritten(widgetDataKey)
+                WidgetCenter.shared.reloadTimelines(ofKind: CPU_entry.kind)
+                WidgetCenter.shared.reloadTimelines(ofKind: "UnitedWidget")
             }
-            WidgetCenter.shared.reloadTimelines(ofKind: CPU_entry.kind)
-            WidgetCenter.shared.reloadTimelines(ofKind: "UnitedWidget")
         }
     }
 }

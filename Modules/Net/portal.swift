@@ -74,7 +74,7 @@ public class Portal: PortalWrapper {
         
         let chart = NetworkChartView(
             frame: CGRect(x: 0, y: 0, width: self.frame.width - (Constants.Popup.spacing*8), height: 68),
-            num: 120,
+            num: 10,
             reversedOrder: self.reverseOrderState,
             outColor: self.uploadColor,
             inColor: self.downloadColor,

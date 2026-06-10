@@ -91,7 +91,7 @@ public class Portal: PortalWrapper {
         self.usedField = portalRow(view, title: "\(localizedString("Used")):").1
         self.freeField = portalRow(view, title: "\(localizedString("Free")):").1
         
-        let chart = NetworkChartView(frame: NSRect.zero, num: 120, minMax: false, outColor: self.writeColor, inColor: self.readColor)
+        let chart = NetworkChartView(frame: NSRect.zero, num: 10, minMax: false, outColor: self.writeColor, inColor: self.readColor)
         chart.heightAnchor.constraint(equalToConstant: 26).isActive = true
         self.chart = chart
         view.addArrangedSubview(chart)

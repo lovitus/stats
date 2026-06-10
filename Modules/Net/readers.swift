@@ -24,9 +24,8 @@ extension CWPHYMode: @retroactive CustomStringConvertible {
         case .mode11g:  return "802.11g"
         case .mode11n:  return "802.11n"
         case .mode11ax: return "802.11ax"
-        case .mode11be: return "802.11be"
         case .modeNone: return "none"
-        @unknown default: return "unknown"
+        @unknown default: return self.rawValue == 7 ? "802.11be" : "unknown"
         }
     }
 }
@@ -98,6 +97,13 @@ extension CWChannel {
     }
 }
 
+private let networkUsageTotalWriteInterval: TimeInterval = 60
+
+private struct NetworkUsageTotalStore: Codable, Equatable {
+    let upload: Int64
+    let download: Int64
+}
+
 internal class UsageReader: Reader<Network_Usage>, CWEventDelegate {
     private var reachability: Reachability = Reachability(start: true)
     private let variablesQueue = DispatchQueue(label: "eu.exelban.NetworkUsageReader")
@@ -159,6 +165,8 @@ internal class UsageReader: Reader<Network_Usage>, CWEventDelegate {
     private let wifiClient = CWWiFiClient.shared()
     
     private var lastDetailsReadTS: Date = .distantPast
+    private var lastTotalWrite: Date? = nil
+    private var lastPersistedTotal: NetworkUsageTotalStore = NetworkUsageTotalStore(upload: 0, download: 0)
     
     public override func setup() {
         self.reachability.reachable = { [weak self] in
@@ -193,6 +201,7 @@ internal class UsageReader: Reader<Network_Usage>, CWEventDelegate {
             self.usage = usage
             self.usage.bandwidth = Bandwidth()
         }
+        self.restoreTotalNetworkUsage()
         
         self.checkUsageReset()
         
@@ -201,6 +210,7 @@ internal class UsageReader: Reader<Network_Usage>, CWEventDelegate {
     }
     
     public override func terminate() {
+        self.persistTotalNetworkUsage(force: true)
         self.reachability.stop()
         self.reachability.reachable = {}
         self.reachability.unreachable = {}
@@ -238,6 +248,7 @@ internal class UsageReader: Reader<Network_Usage>, CWEventDelegate {
         
         self.usage.total.upload += self.usage.bandwidth.upload
         self.usage.total.download += self.usage.bandwidth.download
+        self.persistTotalNetworkUsage()
         
         self.usage.status = self.reachability.isReachable
         
@@ -573,8 +584,34 @@ internal class UsageReader: Reader<Network_Usage>, CWEventDelegate {
     
     @objc func resetTotalNetworkUsage() {
         self.usage.total = Bandwidth()
-        self.save(self.usage)
+        self.persistTotalNetworkUsage(force: true)
         self.nextUsageResetDate = self.nextUsageReset(after: Date())
+    }
+    
+    private func restoreTotalNetworkUsage() {
+        guard let data = Store.shared.data(key: networkUsageTotalStoreKey),
+              let value = try? JSONDecoder().decode(NetworkUsageTotalStore.self, from: data) else { return }
+        self.usage.total = Bandwidth(upload: value.upload, download: value.download)
+        self.lastPersistedTotal = value
+    }
+    
+    private func persistTotalNetworkUsage(force: Bool = false) {
+        let now = Date()
+        if !force, let lastTotalWrite = self.lastTotalWrite, now.timeIntervalSince(lastTotalWrite) < networkUsageTotalWriteInterval {
+            return
+        }
+        
+        let total = self.usage.total
+        let value = NetworkUsageTotalStore(upload: total.upload, download: total.download)
+        if value == self.lastPersistedTotal {
+            self.lastTotalWrite = now
+            return
+        }
+        guard let data = try? JSONEncoder().encode(value) else { return }
+        
+        Store.shared.set(key: networkUsageTotalStoreKey, value: data)
+        self.lastTotalWrite = now
+        self.lastPersistedTotal = value
     }
     
     private func startListeningForWifiEvents() {

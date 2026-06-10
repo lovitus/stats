@@ -368,12 +368,24 @@ public let FanValues: [KeyValue_t] = [
 ]
 
 public var LineChartHistory: [KeyValue_p] = [
-    KeyValue_t(key: "60", value: "1 minute"),
-    KeyValue_t(key: "120", value: "2 minutes"),
-    KeyValue_t(key: "180", value: "3 minutes"),
-    KeyValue_t(key: "300", value: "5 minutes"),
-    KeyValue_t(key: "600", value: "10 minutes")
+    KeyValue_t(key: "1", value: "1 minute"),
+    KeyValue_t(key: "2", value: "2 minutes"),
+    KeyValue_t(key: "3", value: "3 minutes"),
+    KeyValue_t(key: "5", value: "5 minutes"),
+    KeyValue_t(key: "10", value: "10 minutes")
 ]
+
+public func normalizedLineChartHistory(_ value: Int) -> Int {
+    switch value {
+    case 30, 60: return 1
+    case 90, 120: return 2
+    case 180: return 3
+    case 300: return 5
+    case 600: return 10
+    case 1, 2, 3, 5, 10: return value
+    default: return min(max(value, 1), 10)
+    }
+}
 
 public struct SizeUnit: KeyValue_p, Equatable {
     public let key: String
