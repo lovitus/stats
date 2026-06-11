@@ -109,6 +109,7 @@ jobs:
 
       - name: Create GitHub Release
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SHORT_SHA: ${{ github.sha }}
         run: |
           TAG="build-$(date -u +'%Y.%m.%d-%H%M%S')-${SHORT_SHA:0:7}"
