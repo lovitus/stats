@@ -1,5 +1,12 @@
 # Stats
 
+## folk details
+所有数据全部存内存, 限制采样10分钟, 所有图表数据源统一.  极大降低内存使用,几乎从不写盘.
+因上游作者不打算优化写盘, 每天写15G在当前设备, 所以folk创建当前版本, 需要更加新的特性请访问源项目. 
+
+<img width="1584" height="186" alt="image" src="https://github.com/user-attachments/assets/8babc84f-d886-487e-97be-b501bb7d74f4" />
+
+---
 <a href="https://github.com/exelban/stats/releases"><p align="center"><img src="https://github.com/exelban/stats/raw/master/Stats/Supporting%20Files/Assets.xcassets/AppIcon.appiconset/icon_256x256.png" width="120"></p></a>
 
 [![Stats](https://serhiy.s3.eu-central-1.amazonaws.com/Github_repo/stats/menus%3Fv2.3.2.png?v1)](https://github.com/exelban/stats/releases)
