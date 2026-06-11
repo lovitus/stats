@@ -108,10 +108,13 @@ jobs:
           retention-days: 7
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: build-${{ github.sha }}
-          name: "Dev Build (${{ github.sha }})"
-          body: "Signed and notarized build from commit ${{ github.sha }}"
-          files: Stats.dmg
-          prerelease: true
+        env:
+          SHORT_SHA: ${{ github.sha }}
+        run: |
+          TAG="build-$(date -u +'%Y.%m.%d-%H%M%S')-${SHORT_SHA:0:7}"
+          TITLE="Dev Build $(date -u +'%Y-%m-%d %H:%M') (${SHORT_SHA:0:7})"
+          gh release create "$TAG" Stats.dmg \
+            --repo ${{ github.repository }} \
+            --title "$TITLE" \
+            --notes "Signed and notarized build from commit ${SHORT_SHA:0:7}" \
+            --prerelease
