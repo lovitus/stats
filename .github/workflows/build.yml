@@ -32,15 +32,16 @@ jobs:
           rm /tmp/cert.p12
 
       - name: Build archive
+        env:
+          DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           xcodebuild \
             -scheme Stats \
             -destination 'platform=OS X,arch=arm64' \
             -configuration Release archive \
             -archivePath $PWD/build/Stats.xcarchive \
-            CODE_SIGN_IDENTITY="Developer ID Application" \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM=8WPJLUNLY8
+            CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM=$DEVELOPMENT_TEAM
 
       - name: Export .app
         run: |
@@ -49,10 +50,28 @@ jobs:
             -exportPath $PWD/build \
             -exportOptionsPlist exportOptions.plist
 
-      - name: Extract .app from archive
+      - name: Notarize
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
         run: |
-          cp -R "$PWD/build/Stats.app" "$PWD/Stats.app" 2>/dev/null || \
-          cp -R "$PWD/build/Stats.xcarchive/Products/Applications/Stats.app" "$PWD/Stats.app"
+          echo "$ASC_PRIVATE_KEY" > /tmp/asc_key.p8
+          xcrun notarytool submit \
+            --key /tmp/asc_key.p8 \
+            --key-id "$ASC_KEY_ID" \
+            --issuer "$ASC_ISSUER_ID" \
+            --wait \
+            "$PWD/build/Stats.zip" 2>/dev/null || \
+          (cd "$PWD/build" && zip -r Stats.zip Stats.app && \
+           xcrun notarytool submit \
+            --key /tmp/asc_key.p8 \
+            --key-id "$ASC_KEY_ID" \
+            --issuer "$ASC_ISSUER_ID" \
+            --wait \
+            Stats.zip)
+          xcrun stapler staple "$PWD/build/Stats.app"
+          rm /tmp/asc_key.p8
 
       - name: Install create-dmg
         run: brew install create-dmg
@@ -69,7 +88,7 @@ jobs:
             --app-drop-link 375 175 \
             --no-internet-enable \
             Stats.dmg \
-            "$PWD/Stats.app"
+            "$PWD/build/Stats.app"
 
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
@@ -83,6 +102,6 @@ jobs:
         with:
           tag_name: build-${{ github.sha }}
           name: "Dev Build (${{ github.sha }})"
-          body: "Automated unsigned build from commit ${{ github.sha }}"
+          body: "Signed and notarized build from commit ${{ github.sha }}"
           files: Stats.dmg
           prerelease: true
