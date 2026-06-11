@@ -59,20 +59,28 @@ jobs:
           ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
         run: |
           echo "$ASC_PRIVATE_KEY" > /tmp/asc_key.p8
-          xcrun notarytool submit \
+          cd "$PWD/build"
+          ditto -c -k --keepParent Stats.app Stats.zip
+          SUBMIT_OUT=$(xcrun notarytool submit Stats.zip \
             --key /tmp/asc_key.p8 \
             --key-id "$ASC_KEY_ID" \
             --issuer "$ASC_ISSUER_ID" \
-            --wait \
-            "$PWD/build/Stats.zip" 2>/dev/null || \
-          (cd "$PWD/build" && zip -r Stats.zip Stats.app && \
-           xcrun notarytool submit \
-            --key /tmp/asc_key.p8 \
-            --key-id "$ASC_KEY_ID" \
-            --issuer "$ASC_ISSUER_ID" \
-            --wait \
-            Stats.zip)
-          xcrun stapler staple "$PWD/build/Stats.app"
+            --wait --output-format json 2>&1)
+          echo "$SUBMIT_OUT"
+          SUBMISSION_ID=$(echo "$SUBMIT_OUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null || true)
+          STATUS=$(echo "$SUBMIT_OUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])" 2>/dev/null || true)
+          if [ "$STATUS" != "Accepted" ]; then
+            echo "Notarization failed with status: $STATUS"
+            if [ -n "$SUBMISSION_ID" ]; then
+              xcrun notarytool log "$SUBMISSION_ID" \
+                --key /tmp/asc_key.p8 \
+                --key-id "$ASC_KEY_ID" \
+                --issuer "$ASC_ISSUER_ID" || true
+            fi
+            rm /tmp/asc_key.p8
+            exit 1
+          fi
+          xcrun stapler staple Stats.app
           rm /tmp/asc_key.p8
 
       - name: Install create-dmg
