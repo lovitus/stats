@@ -2,7 +2,7 @@ name: Build DMG
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "master" ]
   workflow_dispatch:
 
 jobs:
@@ -59,7 +59,7 @@ jobs:
           ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
         run: |
           echo "$ASC_PRIVATE_KEY" > /tmp/asc_key.p8
-          cd "$PWD/build"
+          cd "$GITHUB_WORKSPACE/build"
           ditto -c -k --keepParent Stats.app Stats.zip
           SUBMIT_OUT=$(xcrun notarytool submit Stats.zip \
             --key /tmp/asc_key.p8 \
@@ -80,7 +80,7 @@ jobs:
             rm /tmp/asc_key.p8
             exit 1
           fi
-          xcrun stapler staple Stats.app
+          xcrun stapler staple "$GITHUB_WORKSPACE/build/Stats.app"
           rm /tmp/asc_key.p8
 
       - name: Install create-dmg
