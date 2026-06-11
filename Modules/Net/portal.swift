@@ -74,12 +74,14 @@ public class Portal: PortalWrapper {
         
         let chart = NetworkChartView(
             frame: CGRect(x: 0, y: 0, width: self.frame.width - (Constants.Popup.spacing*8), height: 68),
-            num: 10,
+            num: lineChartSamples(forHistory: lineChartDefaultHistory),
             reversedOrder: self.reverseOrderState,
             outColor: self.uploadColor,
             inColor: self.downloadColor,
             scale: self.chartScale,
-            fixedScale: Double(self.chartFixedScaleSize.toBytes(self.chartFixedScale))
+            fixedScale: Double(self.chartFixedScaleSize.toBytes(self.chartFixedScale)),
+            sampleInterval: lineChartSampleInterval,
+            historyKey: lineChartHistoryKey(self.name, "bandwidth")
         )
         chart.setBase(self.base)
         container.addSubview(chart)

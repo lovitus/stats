@@ -18,19 +18,14 @@ public class LineChart: WidgetWrapper {
     private var valueState: Bool = false
     private var valueColorState: Bool = false
     private var colorState: SColor = .systemAccent
-    private var historyCount: Int = 3
+    private var historyCount: Int = lineChartDefaultHistory
     private var scaleState: Scale = .none
-    
-    private var chart: LineChartView = LineChartView(frame: NSRect(
-        x: 0,
-        y: 0,
-        width: 32,
-        height: Constants.Widget.height - (2*Constants.Widget.margin.y)
-    ), num: 3)
+
+    private var chart: LineChartView
     private var colors: [SColor] = SColor.allCases.filter({ $0 != SColor.cluster })
     private var _value: Double = 0
     private var _pressureLevel: RAMPressure = .normal
-    
+
     private var historyNumbers: [KeyValue_p] = LineChartHistory
     private var width: CGFloat {
         get {
@@ -50,12 +45,12 @@ public class LineChart: WidgetWrapper {
             }
         }
     }
-    
+
     private var boxSettingsView: NSSwitch? = nil
     private var frameSettingsView: NSSwitch? = nil
-    
+
     public var NSLabelCharts: [NSAttributedString] = []
-    
+
     public init(title: String, config: NSDictionary?, preview: Bool = false) {
         var widgetTitle: String = title
         if config != nil {
@@ -80,16 +75,23 @@ public class LineChart: WidgetWrapper {
                 }
             }
         }
-        
+
+        self.chart = LineChartView(
+            frame: NSRect(x: 0, y: 0, width: 32, height: Constants.Widget.height - (2*Constants.Widget.margin.y)),
+            num: lineChartSamples(forHistory: lineChartDefaultHistory),
+            sampleInterval: lineChartSampleInterval,
+            historyKey: preview ? nil : lineChartHistoryKey(widgetTitle, "usage")
+        )
+
         super.init(.lineChart, title: widgetTitle, frame: CGRect(
             x: Constants.Widget.margin.x,
             y: Constants.Widget.margin.y,
             width: 32 + (Constants.Widget.margin.x*2),
             height: Constants.Widget.height - (2*Constants.Widget.margin.y)
         ))
-        
+
         self.canDrawConcurrently = true
-        
+
         if !preview {
             self.boxState = Store.shared.bool(key: "\(self.title)_\(self.type.rawValue)_box", defaultValue: self.boxState)
             self.frameState = Store.shared.bool(key: "\(self.title)_\(self.type.rawValue)_frame", defaultValue: self.frameState)
@@ -99,26 +101,26 @@ public class LineChart: WidgetWrapper {
             self.colorState = SColor.fromString(Store.shared.string(key: "\(self.title)_\(self.type.rawValue)_color", defaultValue: self.colorState.key))
             self.historyCount = normalizedLineChartHistory(Store.shared.int(key: "\(self.title)_\(self.type.rawValue)_historyCount", defaultValue: self.historyCount))
             self.scaleState = Scale.fromString(Store.shared.string(key: "\(self.title)_\(self.type.rawValue)_scale", defaultValue: self.scaleState.key))
-            
+
             self.chart.setScale(self.scaleState)
-            self.chart.reinit(self.historyCount)
+            self.chart.reinit(lineChartSamples(forHistory: self.historyCount))
         }
-        
+
         self.addSubview(self.chart)
-        
+
         if self.labelState {
             self.setFrameSize(NSSize(width: Constants.Widget.width + 6 + (Constants.Widget.margin.x*2), height: self.frame.size.height))
         }
-        
+
         if preview {
             var list: [DoubleValue] = []
-            for _ in 0..<16 {
+            for _ in 0..<lineChartSamples(forHistory: lineChartDefaultHistory) {
                 list.append(DoubleValue(Double.random(in: 0..<1)))
             }
             self.chart.setPoints(list)
             self._value = 0.38
         }
-        
+
         let style = NSMutableParagraphStyle()
         style.alignment = .center
         let stringAttributes = [
@@ -126,37 +128,37 @@ public class LineChart: WidgetWrapper {
             NSAttributedString.Key.foregroundColor: NSColor.textColor,
             NSAttributedString.Key.paragraphStyle: style
         ]
-        
+
         for char in String(self.title.prefix(3)).uppercased().reversed() {
             let str = NSAttributedString.init(string: "\(char)", attributes: stringAttributes)
             self.NSLabelCharts.append(str)
         }
-        
+
         self.chart.setTooltipEnabled(false)
     }
-    
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     public override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        
+
         guard NSGraphicsContext.current != nil else { return }
-        
+
         var value: Double = 0
         var pressureLevel: RAMPressure = .normal
         self.queue.sync {
             value = self._value
             pressureLevel = self._pressureLevel
         }
-        
+
         var width = self.width + (Constants.Widget.margin.x*2)
         var x: CGFloat = 0
         let lineWidth = 1 / (NSScreen.main?.backingScaleFactor ?? 1)
         let offset = lineWidth / 2
         var boxSize: CGSize = CGSize(width: self.width - (Constants.Widget.margin.x*2), height: self.frame.size.height)
-        
+
         var color: NSColor = .controlAccentColor
         switch self.colorState {
         case .systemAccent: color = .controlAccentColor
@@ -170,51 +172,51 @@ public class LineChart: WidgetWrapper {
             }
         default: color = self.colorState.additional as? NSColor ?? .controlAccentColor
         }
-        
+
         if self.labelState {
             let letterHeight = self.frame.height / 3
             let letterWidth: CGFloat = 6.0
-            
+
             var yMargin: CGFloat = 0
             for char in self.NSLabelCharts {
                 let rect = CGRect(x: x, y: yMargin, width: letterWidth, height: letterHeight)
                 char.draw(with: rect)
                 yMargin += letterHeight
             }
-            
+
             width += letterWidth + Constants.Widget.spacing
             x = letterWidth + Constants.Widget.spacing
         }
-        
+
         if self.valueState {
             let style = NSMutableParagraphStyle()
             style.alignment = .right
-            
+
             var valueColor = isDarkMode ? NSColor.white : NSColor.black
             if self.valueColorState {
                 valueColor = color
             }
-            
+
             let stringAttributes = [
                 NSAttributedString.Key.font: NSFont.systemFont(ofSize: 8, weight: .regular),
                 NSAttributedString.Key.foregroundColor: valueColor,
                 NSAttributedString.Key.paragraphStyle: style
             ]
-            
+
             let rect = CGRect(x: x+2, y: boxSize.height-7, width: boxSize.width - 2, height: 7)
             let str = NSAttributedString.init(string: "\(Int((value.rounded(toPlaces: 2)) * 100))%", attributes: stringAttributes)
             str.draw(with: rect)
-            
+
             boxSize.height = offset == 0.5 ? 10 : 9
         }
-        
+
         let box = NSBezierPath(roundedRect: NSRect(
             x: x+offset,
             y: offset,
             width: self.width - offset*2,
             height: boxSize.height - (offset*2)
         ), xRadius: 2, yRadius: 2)
-        
+
         if self.boxState {
             (isDarkMode ? NSColor.white : NSColor.black).set()
             box.stroke()
@@ -225,7 +227,7 @@ public class LineChart: WidgetWrapper {
         } else {
             self.chart.setTransparent(true)
         }
-        
+
         let chartSize = NSSize(
             width: box.bounds.width - (offset*2+lineWidth),
             height: box.bounds.height - offset
@@ -235,16 +237,16 @@ public class LineChart: WidgetWrapper {
         if self.chart.frame != chartFrame {
             self.chart.frame = chartFrame
         }
-        
+
         if self.boxState || self.frameState {
             (isDarkMode ? NSColor.white : NSColor.black).set()
             box.lineWidth = lineWidth
             box.stroke()
         }
-        
+
         self.setWidth(width)
     }
-    
+
     public func setValue(_ newValue: Double) {
         DispatchQueue.main.async(execute: {
             self._value = newValue
@@ -252,7 +254,7 @@ public class LineChart: WidgetWrapper {
             self.display()
         })
     }
-    
+
     public func setPressure(_ newPressureLevel: RAMPressure) {
         DispatchQueue.main.async(execute: {
             guard self._pressureLevel != newPressureLevel else { return }
@@ -260,12 +262,12 @@ public class LineChart: WidgetWrapper {
             self.display()
         })
     }
-    
+
     // MARK: - Settings
-    
+
     public override func settings() -> NSView {
         let view = SettingsContainerView()
-        
+
         let box = switchView(
             action: #selector(self.toggleBox),
             state: self.boxState
@@ -276,7 +278,7 @@ public class LineChart: WidgetWrapper {
             state: self.frameState
         )
         self.frameSettingsView = frame
-        
+
         view.addArrangedSubview(PreferencesSection([
             PreferencesRow(localizedString("Label"), component: switchView(
                 action: #selector(self.toggleLabel),
@@ -308,69 +310,69 @@ public class LineChart: WidgetWrapper {
                 selected: self.scaleState.key
             ))
         ]))
-        
+
         return view
     }
-    
+
     @objc private func toggleLabel(_ sender: NSControl) {
         self.labelState = controlState(sender)
         Store.shared.set(key: "\(self.title)_\(self.type.rawValue)_label", value: self.labelState)
         self.display()
     }
-    
+
     @objc private func toggleBox(_ sender: NSControl) {
         self.boxState = controlState(sender)
         Store.shared.set(key: "\(self.title)_\(self.type.rawValue)_box", value: self.boxState)
-        
+
         if self.frameState {
             self.frameSettingsView?.state = .off
             self.frameState = false
             Store.shared.set(key: "\(self.title)_\(self.type.rawValue)_frame", value: self.frameState)
         }
-        
+
         self.display()
     }
-    
+
     @objc private func toggleFrame(_ sender: NSControl) {
         self.frameState = controlState(sender)
         Store.shared.set(key: "\(self.title)_\(self.type.rawValue)_frame", value: self.frameState)
-        
+
         if self.boxState {
             self.boxSettingsView?.state = .off
             self.boxState = false
             Store.shared.set(key: "\(self.title)_\(self.type.rawValue)_box", value: self.boxState)
         }
-        
+
         self.display()
     }
-    
+
     @objc private func toggleValue(_ sender: NSControl) {
         self.valueState = controlState(sender)
         Store.shared.set(key: "\(self.title)_\(self.type.rawValue)_value", value: self.valueState)
         self.display()
     }
-    
+
     @objc private func toggleColor(_ sender: NSMenuItem) {
         guard let key = sender.representedObject as? String else { return }
         self.colorState = SColor.fromString(key, defaultValue: self.colorState)
         Store.shared.set(key: "\(self.title)_\(self.type.rawValue)_color", value: self.colorState.key)
         self.display()
     }
-    
+
     @objc private func toggleValueColor(_ sender: NSControl) {
         self.valueColorState = controlState(sender)
         Store.shared.set(key: "\(self.title)_\(self.type.rawValue)_valueColor", value: self.valueColorState)
         self.display()
     }
-    
+
     @objc private func toggleHistoryCount(_ sender: NSMenuItem) {
         guard let key = sender.representedObject as? String, let value = Int(key) else { return }
         self.historyCount = normalizedLineChartHistory(value)
         Store.shared.set(key: "\(self.title)_\(self.type.rawValue)_historyCount", value: self.historyCount)
-        self.chart.reinit(self.historyCount)
+        self.chart.reinit(lineChartSamples(forHistory: self.historyCount))
         self.display()
     }
-    
+
     @objc private func toggleScale(_ sender: NSMenuItem) {
         guard let key = sender.representedObject as? String,
               let value = Scale.allCases.first(where: { $0.key == key }) else { return }

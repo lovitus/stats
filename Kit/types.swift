@@ -387,6 +387,18 @@ public func normalizedLineChartHistory(_ value: Int) -> Int {
     }
 }
 
+public let lineChartDefaultHistory = 10
+public let lineChartSampleInterval: TimeInterval = 5
+
+public func lineChartSamples(forHistory value: Int) -> Int {
+    let minutes = normalizedLineChartHistory(value)
+    return max(Int((Double(minutes) * 60 / lineChartSampleInterval).rounded()), 1)
+}
+
+public func lineChartHistoryKey(_ parts: String...) -> String {
+    return parts.joined(separator: ".")
+}
+
 public struct SizeUnit: KeyValue_p, Equatable {
     public let key: String
     public let value: String

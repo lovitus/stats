@@ -44,19 +44,19 @@ internal class Preview: PreviewWrapper {
         
         self.addArrangedSubview(PreferencesSection([self.quickView()]))
         
-        let (historyView, historyChart) = self.historyView()
+        let (historyView, historyChart) = self.historyView("usage")
         self.utilizationLineChart = historyChart
         
-        let (aneHistoryView, aneHistoryChart) = self.historyView()
+        let (aneHistoryView, aneHistoryChart) = self.historyView("ane")
         self.aneLineChart = aneHistoryChart
         
-        let (renderHistoryView, renderHistoryChart) = self.historyView()
+        let (renderHistoryView, renderHistoryChart) = self.historyView("render")
         self.renderLineChart = renderHistoryChart
         
-        let (tilerHistoryView, tilerHistoryChart) = self.historyView()
+        let (tilerHistoryView, tilerHistoryChart) = self.historyView("tiler")
         self.tilerLineChart = tilerHistoryChart
         
-        let (fpsHistoryView, fpsHistoryChart) = self.historyView()
+        let (fpsHistoryView, fpsHistoryChart) = self.historyView("fps")
         fpsHistoryChart.setSuffix(" fps")
         self.fpsLineChart = fpsHistoryChart
         
@@ -181,14 +181,14 @@ internal class Preview: PreviewWrapper {
         return view
     }
     
-    private func historyView() -> (NSView, LineChartView) {
+    private func historyView(_ key: String) -> (NSView, LineChartView) {
         let view: NSStackView = NSStackView()
         view.orientation = .vertical
         view.distribution = .fillEqually
         view.spacing = Constants.Settings.margin*2
         view.heightAnchor.constraint(equalToConstant: 140).isActive = true
         
-        let chart = LineChartView(num: 10)
+        let chart = LineChartView(num: lineChartSamples(forHistory: lineChartDefaultHistory), historyKey: lineChartHistoryKey(self.module.stringValue, key))
         chart.setLegend(x: true, y: true)
         view.addArrangedSubview(chart)
         

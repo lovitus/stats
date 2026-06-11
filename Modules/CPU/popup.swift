@@ -93,7 +93,7 @@ internal class Popup: PopupWrapper {
     
     private var processes: ProcessesView? = nil
     private var maxFreq: Double = 0
-    private var lineChartHistory: Int = 3
+    private var lineChartHistory: Int = lineChartDefaultHistory
     private var lineChartScale: Scale = .none
     private var lineChartFixedScale: Double = 1
     
@@ -244,7 +244,7 @@ internal class Popup: PopupWrapper {
             box.layer?.cornerRadius = Constants.Popup.radius
             
             let chartFrame = NSRect(x: 1, y: 0, width: box.frame.width - 2, height: box.frame.height)
-            self.lineChart = LineChartView(frame: chartFrame, num: self.lineChartHistory, scale: self.lineChartScale, fixedScale: self.lineChartFixedScale)
+            self.lineChart = LineChartView(frame: chartFrame, num: lineChartSamples(forHistory: self.lineChartHistory), scale: self.lineChartScale, fixedScale: self.lineChartFixedScale, sampleInterval: lineChartSampleInterval, historyKey: lineChartHistoryKey(self.title, "usage"))
             self.lineChart?.setColor(self.chartColor)
             box.addSubview(self.lineChart!)
             
@@ -676,7 +676,7 @@ internal class Popup: PopupWrapper {
         guard let key = sender.representedObject as? String, let value = Int(key) else { return }
         self.lineChartHistory = normalizedLineChartHistory(value)
         Store.shared.set(key: "\(self.title)_lineChartHistory", value: self.lineChartHistory)
-        self.lineChart?.reinit(self.lineChartHistory)
+        self.lineChart?.reinit(lineChartSamples(forHistory: self.lineChartHistory))
     }
     @objc private func toggleLineChartScale(_ sender: NSMenuItem) {
         guard let key = sender.representedObject as? String,

@@ -24,7 +24,7 @@ internal class Popup: PopupWrapper {
     private var tilerCircle: PieChartView? = nil
     
     private var chart: LineChartView? = nil
-    private var lineChartHistory: Int = 3
+    private var lineChartHistory: Int = lineChartDefaultHistory
     private var lineChartScale: Scale = .none
     private var lineChartFixedScale: Double = 1
     
@@ -102,7 +102,7 @@ internal class Popup: PopupWrapper {
         container.layer?.cornerRadius = Constants.Popup.radius
         
         let chartFrame = NSRect(x: 1, y: 0, width: view.frame.width - 2, height: container.frame.height)
-        self.chart = LineChartView(frame: chartFrame, num: self.lineChartHistory, scale: self.lineChartScale, fixedScale: self.lineChartFixedScale)
+        self.chart = LineChartView(frame: chartFrame, num: lineChartSamples(forHistory: self.lineChartHistory), scale: self.lineChartScale, fixedScale: self.lineChartFixedScale, sampleInterval: lineChartSampleInterval, historyKey: lineChartHistoryKey(self.title, "usage"))
         container.addSubview(self.chart!)
         
         view.addSubview(separator)

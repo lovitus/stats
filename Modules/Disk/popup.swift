@@ -294,7 +294,7 @@ internal class DiskView: NSStackView {
         self.size = size
         let innerWidth: CGFloat = width - (Constants.Popup.margins * 2)
         self.nameView = NameView(width: innerWidth, name: name, size: size, free: free, path: path)
-        self.chartView = ChartView(width: innerWidth)
+        self.chartView = ChartView(width: innerWidth, key: uuid)
         self.barView = BarChartView(frame: NSRect(x: 0, y: 0, width: innerWidth, height: 10), horizontal: true)
         self.barView.widthAnchor.constraint(equalToConstant: innerWidth).isActive = true
         self.barView.heightAnchor.constraint(equalToConstant: 10).isActive = true
@@ -510,7 +510,7 @@ internal class ChartView: NSStackView {
         Store.shared.bool(key: "\(ModuleType.disk.stringValue)_reverseOrder", defaultValue: false)
     }
     
-    public init(width: CGFloat) {
+    public init(width: CGFloat, key: String) {
         super.init(frame: NSRect(x: 0, y: 0, width: width, height: 36))
         
         self.wantsLayer = true
@@ -521,7 +521,7 @@ internal class ChartView: NSStackView {
             y: 1,
             width: self.frame.width,
             height: self.frame.height - 2
-        ), num: 10, reversedOrder: self.reverseOrder, outColor: self.writeColor, inColor: self.readColor)
+        ), num: lineChartSamples(forHistory: lineChartDefaultHistory), reversedOrder: self.reverseOrder, outColor: self.writeColor, inColor: self.readColor, sampleInterval: lineChartSampleInterval, historyKey: lineChartHistoryKey("Disk", key, "activity"))
         chart.setTooltipState(false)
         self.chart = chart
         

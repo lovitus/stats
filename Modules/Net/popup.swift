@@ -71,7 +71,7 @@ internal class Popup: PopupWrapper {
     
     private var chart: NetworkChartView? = nil
     private var reverseOrderState: Bool = false
-    private var chartHistory: Int = 3
+    private var chartHistory: Int = lineChartDefaultHistory
     private var chartScale: Scale = .none
     private var chartFixedScale: Int = 12
     private var chartFixedScaleSize: SizeUnit = .MB
@@ -211,9 +211,11 @@ internal class Popup: PopupWrapper {
         
         let chart = NetworkChartView(
             frame: NSRect(x: 0, y: 1, width: container.frame.width, height: container.frame.height - 2),
-            num: self.chartHistory, reversedOrder: self.reverseOrderState, outColor: self.uploadColor, inColor: self.downloadColor,
+            num: lineChartSamples(forHistory: self.chartHistory), reversedOrder: self.reverseOrderState, outColor: self.uploadColor, inColor: self.downloadColor,
             scale: self.chartScale,
-            fixedScale: Double(self.chartFixedScaleSize.toBytes(self.chartFixedScale))
+            fixedScale: Double(self.chartFixedScaleSize.toBytes(self.chartFixedScale)),
+            sampleInterval: lineChartSampleInterval,
+            historyKey: lineChartHistoryKey(self.title, "bandwidth")
         )
         chart.setBase(self.base)
         container.addSubview(chart)
@@ -774,7 +776,7 @@ internal class Popup: PopupWrapper {
         guard let key = sender.representedObject as? String, let value = Int(key) else { return }
         self.chartHistory = normalizedLineChartHistory(value)
         Store.shared.set(key: "\(self.title)_chartHistory", value: self.chartHistory)
-        self.chart?.reinit(self.chartHistory)
+        self.chart?.reinit(lineChartSamples(forHistory: self.chartHistory))
     }
     @objc private func toggleChartScale(_ sender: NSMenuItem) {
         guard let key = sender.representedObject as? String,
