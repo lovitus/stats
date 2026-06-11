@@ -18,21 +18,41 @@ jobs:
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
 
-      - name: Build archive (unsigned)
+      - name: Install certificate
+        env:
+          P12_BASE64: ${{ secrets.DEVELOPER_ID_P12 }}
+          P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+        run: |
+          echo "$P12_BASE64" | base64 --decode -o /tmp/cert.p12
+          security create-keychain -p "build_kc" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "build_kc" build.keychain
+          security import /tmp/cert.p12 -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "build_kc" build.keychain
+          rm /tmp/cert.p12
+
+      - name: Build archive
         run: |
           xcodebuild \
             -scheme Stats \
             -destination 'platform=OS X,arch=arm64' \
             -configuration Release archive \
             -archivePath $PWD/build/Stats.xcarchive \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM=8WPJLUNLY8
+
+      - name: Export .app
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath $PWD/build/Stats.xcarchive \
+            -exportPath $PWD/build \
+            -exportOptionsPlist exportOptions.plist
 
       - name: Extract .app from archive
         run: |
-          cp -R "$PWD/build/Stats.xcarchive/Products/Applications/Stats.app" "$PWD/build/Stats.app"
+          cp -R "$PWD/build/Stats.app" "$PWD/Stats.app" 2>/dev/null || \
+          cp -R "$PWD/build/Stats.xcarchive/Products/Applications/Stats.app" "$PWD/Stats.app"
 
       - name: Install create-dmg
         run: brew install create-dmg
@@ -49,7 +69,7 @@ jobs:
             --app-drop-link 375 175 \
             --no-internet-enable \
             Stats.dmg \
-            "$PWD/build/Stats.app"
+            "$PWD/Stats.app"
 
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
